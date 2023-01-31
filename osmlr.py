@@ -16,6 +16,9 @@ streets = getStreets('Nantes, France')
 print(len(streets))
 for street in streets:
     name = street.tags().get("name")
-    print(street.id())
+    #print(street.id())
+    street.members()[0]._unshallow()
+    print(street.members()[0].toXML())
+  
     wayIds = [ i.id() for i in street.members() ] # how to access the damn role to extract the street ways from the relation?
-    print(name, wayIds)
+    #print(name, wayIds)
