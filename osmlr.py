@@ -32,16 +32,23 @@ def getLength(nodes):
 
 streetRelations = getRelations('Nantes, France', 'street') + getRelations('Nantes, France', 'associatedStreet')
 print("found", len(streetRelations), "streets")
+maxLength = 0
+maxLengthName = ""
 for relation in streetRelations:
     name = relation.tags().get("name")
     streetLength = 0
     for member in relation.members():
-            if "highway" in member.tags():
-                length = getLength(member.nodes())
-                if length == 0:
-                    print("WARN, a way of", name, "is empty")
-                streetLength += length
-    print("\t", "street name", name, "has", len(relation.members()), "members and length", streetLength)
+        if "highway" in member.tags():
+            member._unshallow()
+            length = getLength(member.nodes())
+            if length == 0:
+                print("WARN, a way of", name, "is empty")
+            streetLength += length
+    #print("\t", "street name", name, "has", len(relation.members()), "members and length", streetLength)
+    if streetLength > maxLength:
+        maxLength = streetLength
+        maxLengthName = name
+print("Longest is", maxLengthName, "with", maxLength, "meters")
 
 
 
