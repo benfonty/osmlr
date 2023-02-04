@@ -5,8 +5,9 @@ import math
 nominatim = Nominatim()
 overpass = Overpass()
 
+
 def getRelations(areaName, selector):
-    areaId = nominatim.query(areaName).areaId()
+    areaId = areaId = 3600000000 + 59874
     query = overpassQueryBuilder(area=areaId, elementType='relation', selector='"type"="' + selector + '"', out='body')
     return overpass.query(query).relations()
 
@@ -39,6 +40,7 @@ for relation in streetRelations:
     name = relation.tags().get("name")
     streetLength = 0
     for member in relation.members():
+        member._unshallow()
         if "highway" in member.tags():
             member._unshallow()
             length = getLength(member.nodes())
