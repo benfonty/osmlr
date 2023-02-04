@@ -34,6 +34,7 @@ streetRelations = getRelations('Nantes, France', 'street') + getRelations('Nante
 print("found", len(streetRelations), "streets")
 maxLength = 0
 maxLengthName = ""
+maxLengthId = 0
 for relation in streetRelations:
     name = relation.tags().get("name")
     streetLength = 0
@@ -48,7 +49,8 @@ for relation in streetRelations:
     if streetLength > maxLength:
         maxLength = streetLength
         maxLengthName = name
-print("Longest is", maxLengthName, "with", maxLength, "meters")
+        maxLengthId = relation.id()
+print("Longest is", maxLengthName, "(", maxLengthId, ") with", maxLength, "meters")
 
 
 
