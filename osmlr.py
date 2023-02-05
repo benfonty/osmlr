@@ -1,6 +1,6 @@
 import math
 import requests
-from xml.dom.minidom import parseString
+import json
 
 def distance(lat1, lon1, lat2, lon2):
     # https://www.movable-type.co.uk/scripts/latlong.html
@@ -14,10 +14,10 @@ def distance(lat1, lon1, lat2, lon2):
     return R * c
 
 def getLat(node):
-    return float(node.getAttribute("lat"))
+    return node["lat"]
 
 def getLon(node):
-    return float(node.getAttribute("lon"))
+    return node["lon"]
 
 def getLength(nodes):
     if nodes == None or len(nodes) < 2:
@@ -31,6 +31,7 @@ def getLength(nodes):
 DEBUG = True
 
 relationsQuery = """
+[out:json];
 (area[name="Nantes"]["admin_type:FR"="commune"]; )->.a;
 (
   relation[type=street](area.a);
@@ -47,16 +48,16 @@ def getName(element):
     return None
 
 def calculateQueryFromWayIds(wayIds):
-    query = "("
+    query = "[out:json];("
     for wayId in wayIds:
-        query += "way(" + wayId + ");"
+        query += "way(" + str(wayId) + ");"
     query +=");"
     query += "out body;>;out skel qt;"
     return query
 
-def findNode(nodeId, waysAndNodes):
-    for i in waysAndNodes.getElementsByTagName("node"):
-        if i.getAttribute("id") == nodeId:
+def findNode(nodeId, nodes):
+    for i in nodes:
+        if i["id"] == nodeId:
             return i
     return None
 
@@ -64,25 +65,26 @@ URL="https://overpass-api.de/api/interpreter"
 
 result=requests.post(URL, data=relationsQuery).content
 
-relations = parseString(result).getElementsByTagName("relation")
+relations = json.loads(result)["elements"]
 
 maxLength = 0
 maxLengthName = ""
 maxLengthId = 0
 for relation in relations:
-    name = getName(relation)
-    relId = relation.getAttribute("id")
+    name = relation["tags"]["name"]
+    relId = relation["id"]
     streetLength = 0
     if DEBUG: print("calculating for street", name)
-    wayIds = [ i.getAttribute("ref") for i in relation.getElementsByTagName("member") if i.getAttribute("role") == "street" and i.getAttribute("type") == "way"]
+    wayIds = [ i["ref"] for i in relation["members"] if i["role"] == "street" and i["type"] == "way"]
     if DEBUG: print("found",len(wayIds), "ways")
     if (len(wayIds)) != 0:
         query = calculateQueryFromWayIds(wayIds)
         streetResult = requests.post(URL, data=query).content
-        waysAndNodes =  parseString(streetResult)
-        for way in waysAndNodes.getElementsByTagName("way"):
-            nodeIds = [ i.getAttribute("ref") for i in way.getElementsByTagName("nd") ]
-            nodes = [findNode(i, waysAndNodes) for i in nodeIds]
+        waysAndNodes =  json.loads(streetResult)
+        ways = [ i for i in waysAndNodes["elements"] if i["type"] == "way" ]
+        nodes = [ i for i in waysAndNodes["elements"] if i["type"] == "node" ]
+        for way in  ways:
+            nodesOfWay = [findNode(i, nodes) for i in way["nodes"]]
             streetLength += getLength(nodes)
     if DEBUG: print("street name", name, "length", streetLength)
     if streetLength > maxLength:
