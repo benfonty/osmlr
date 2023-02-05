@@ -3,6 +3,7 @@ import requests
 import json
 import os
 import hashlib
+import codecs
 
 def distance(lat1, lon1, lat2, lon2):
     # https://www.movable-type.co.uk/scripts/latlong.html
@@ -76,13 +77,13 @@ def cachedRequest(query):
     cacheFileName = CACHE_DIR + "/" + "request_" + hash(query)
     if os.path.exists(cacheFileName):
         if DEBUG: print(cacheFileName, "already exists")
-        with open(cacheFileName, 'r') as file:
+        with codecs.open(cacheFileName, 'r', "utf-8") as file:
             return file.read()
     else:
         result = requests.post(URL, data=query)
         if result.status_code != 200:
             raise Exception("ERROR calling api: " + str(result.status_code) + " " + result.content )
-        with open(cacheFileName, 'w') as file:
+        with codecs.open(cacheFileName, 'w', "utf-8") as file:
             file.write(result.text)
         return result.content
 
@@ -98,13 +99,14 @@ relations = json.loads(result)["elements"]
 maxLength = 0
 maxLengthName = ""
 maxLengthId = 0
+index = 0
 for relation in relations:
+    index += 1
     name = relation["tags"]["name"]
     relId = relation["id"]
     streetLength = 0
-    if DEBUG: print("calculating for street", name)
+    if DEBUG: print("calculating for street", name, relId)
     wayIds = [ i["ref"] for i in relation["members"] if i["role"] == "street" and i["type"] == "way"]
-    if DEBUG: print("found",len(wayIds), "ways")
     if (len(wayIds)) != 0:
         query = calculateQueryFromWayIds(wayIds)
         streetResult = cachedRequest(query)
@@ -119,6 +121,7 @@ for relation in relations:
         maxLength = streetLength
         maxLengthName = name
         maxLengthId = relId
+    if index %50 == 0: print(index, "over", len(relations))
 print("Longest is", maxLengthName, "(", maxLengthId, ") with", maxLength, "meters")
     
 
