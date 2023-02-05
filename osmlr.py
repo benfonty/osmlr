@@ -98,17 +98,20 @@ relations = json.loads(result)["elements"]
 result = {}
 def addResult(streetType, length, name, streetId):
     if result.get(streetType) == None:
-        result[streetType] = {
-            "length": 0,
-            "name": None,
-            "id": None
-        }
-    if length > result[streetType]["length"]:
-        result[streetType] = {
-            "length": length,
-            "name": name,
-            "id": streetId
-        }
+        result[streetType] = []
+    result[streetType].append({
+        "length": length,
+        "name": name,
+        "id": streetId
+    })
+
+def sortGetLength(item):
+    return item["length"]
+
+def sortResults():
+    for streetType in result:
+        result[streetType].sort(reverse=True, key=sortGetLength)
+        result[streetType] = result[streetType][:10]
 
 def getName(relation):
     result = "unknown"
@@ -143,6 +146,7 @@ for relation in relations:
             addResult(ways[0]["tags"]["highway"], streetLength, name, relId)
     if DEBUG: print("street name", name, "length", streetLength)
     if index %50 == 0: print(index, "over", len(relations))
+sortResults()
 print(result)
     
 
