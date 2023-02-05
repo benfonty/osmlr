@@ -16,41 +16,39 @@ def distance(lat1, lon1, lat2, lon2):
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
-def getLat(node):
-    return node["lat"]
-
-def getLon(node):
-    return node["lon"]
-
 def getLength(nodes):
     if nodes == None or len(nodes) < 2:
         return 0
     result = 0
     for i in range(len(nodes) - 1):
-        result += distance(getLat(nodes[i]), getLon(nodes[i]), getLat(nodes[i+1]), getLon(nodes[i+1]))
+        dist = distance(nodes[i]["lat"], nodes[i]["lon"], nodes[i+1]["lat"], nodes[i+1]["lon"])
+        if DEBUG_RELATION: print("distance between", nodes[i]["id"], "and", nodes[i+1]["id"], dist)
+        result += dist
     return result
     
 
 DEBUG = True
 
+DEBUG_RELATION = None
+
 CACHE_DIR="./cache"
 
-relationsQuery = """
-[out:json];
-(area[name="Nantes"]["admin_type:FR"="commune"]; )->.a;
-(
-  relation[type=street](area.a);
-  relation[type=associatedStreet](area.a);
-);
-out body;
-"""
-
-def getName(element):
-    tags = element.getElementsByTagName("tag")
-    for tag in tags:
-        if tag.getAttribute("k") == "name":
-            return tag.getAttribute("v")
-    return None
+if DEBUG_RELATION:
+    relationsQuery = """
+    [out:json];
+    relation({});
+    out body;
+    """.format(DEBUG_RELATION)    
+else:
+    relationsQuery = """
+    [out:json];
+    (area[name="Nantes"]["admin_type:FR"="commune"]; )->.a;
+    (
+        relation[type=street](area.a);
+        relation[type=associatedStreet](area.a);
+    );
+    out body;
+    """
 
 def calculateQueryFromWayIds(wayIds):
     query = "[out:json];("
@@ -82,7 +80,7 @@ def cachedRequest(query):
     else:
         result = requests.post(URL, data=query)
         if result.status_code != 200:
-            raise Exception("ERROR calling api: " + str(result.status_code) + " " + result.content )
+            raise Exception("ERROR calling api: " + str(result.status_code) + " " + result.text )
         with codecs.open(cacheFileName, 'w', "utf-8") as file:
             file.write(result.text)
         return result.content
@@ -91,6 +89,7 @@ def cachedRequest(query):
 
 
 URL="https://overpass-api.de/api/interpreter"
+
 
 result=cachedRequest(relationsQuery)
 
@@ -113,9 +112,12 @@ for relation in relations:
         waysAndNodes =  json.loads(streetResult)
         ways = [ i for i in waysAndNodes["elements"] if i["type"] == "way" ]
         nodes = [ i for i in waysAndNodes["elements"] if i["type"] == "node" ]
+        if DEBUG_RELATION:
+            print(ways)
+            print(nodes)
         for way in  ways:
             nodesOfWay = [findNode(i, nodes) for i in way["nodes"]]
-            streetLength += getLength(nodes)
+            streetLength += getLength(nodesOfWay)
     if DEBUG: print("street name", name, "length", streetLength)
     if streetLength > maxLength:
         maxLength = streetLength
