@@ -1,6 +1,8 @@
 import math
 import requests
 import json
+import os
+import hashlib
 
 def distance(lat1, lon1, lat2, lon2):
     # https://www.movable-type.co.uk/scripts/latlong.html
@@ -29,6 +31,8 @@ def getLength(nodes):
     
 
 DEBUG = True
+
+CACHE_DIR="./cache"
 
 relationsQuery = """
 [out:json];
@@ -61,9 +65,33 @@ def findNode(nodeId, nodes):
             return i
     return None
 
+def hash(query):
+    h = hashlib.sha1()
+    h.update(query.encode('utf-8'))
+    return h.hexdigest()
+
+def cachedRequest(query):
+    if not os.path.exists(CACHE_DIR):
+        os.makedirs(CACHE_DIR) 
+    cacheFileName = CACHE_DIR + "/" + "request_" + hash(query)
+    if os.path.exists(cacheFileName):
+        if DEBUG: print(cacheFileName, "already exists")
+        with open(cacheFileName, 'r') as file:
+            return file.read()
+    else:
+        result = requests.post(URL, data=query)
+        if result.status_code != 200:
+            raise Exception("ERROR calling api: " + str(result.status_code) + " " + result.content )
+        with open(cacheFileName, 'w') as file:
+            file.write(result.text)
+        return result.content
+
+
+
+
 URL="https://overpass-api.de/api/interpreter"
 
-result=requests.post(URL, data=relationsQuery).content
+result=cachedRequest(relationsQuery)
 
 relations = json.loads(result)["elements"]
 
@@ -79,7 +107,7 @@ for relation in relations:
     if DEBUG: print("found",len(wayIds), "ways")
     if (len(wayIds)) != 0:
         query = calculateQueryFromWayIds(wayIds)
-        streetResult = requests.post(URL, data=query).content
+        streetResult = cachedRequest(query)
         waysAndNodes =  json.loads(streetResult)
         ways = [ i for i in waysAndNodes["elements"] if i["type"] == "way" ]
         nodes = [ i for i in waysAndNodes["elements"] if i["type"] == "node" ]
