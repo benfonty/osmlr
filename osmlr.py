@@ -27,7 +27,7 @@ def getLength(nodes):
     return result
     
 
-DEBUG = True
+DEBUG = False
 
 DEBUG_RELATION = None
 
@@ -95,13 +95,34 @@ result=cachedRequest(relationsQuery)
 
 relations = json.loads(result)["elements"]
 
-maxLength = 0
-maxLengthName = ""
-maxLengthId = 0
+result = {}
+def addResult(streetType, length, name, streetId):
+    if result.get(streetType) == None:
+        result[streetType] = {
+            "length": 0,
+            "name": None,
+            "id": None
+        }
+    if length > result[streetType]["length"]:
+        result[streetType] = {
+            "length": length,
+            "name": name,
+            "id": streetId
+        }
+
+def getName(relation):
+    result = "unknown"
+    if "tags" in relation:
+        if "name" in relation["tags"]:
+            result = relation["tags"]["name"]
+        elif "note" in relation["tags"]:
+            result = relation["tags"]["note"]
+    return result
+
 index = 0
 for relation in relations:
     index += 1
-    name = relation["tags"]["name"]
+    name = getName(relation)
     relId = relation["id"]
     streetLength = 0
     if DEBUG: print("calculating for street", name, relId)
@@ -110,7 +131,7 @@ for relation in relations:
         query = calculateQueryFromWayIds(wayIds)
         streetResult = cachedRequest(query)
         waysAndNodes =  json.loads(streetResult)
-        ways = [ i for i in waysAndNodes["elements"] if i["type"] == "way" ]
+        ways = [ i for i in waysAndNodes["elements"] if i["type"] == "way" and "tags" in i and "highway" in i["tags"]]
         nodes = [ i for i in waysAndNodes["elements"] if i["type"] == "node" ]
         if DEBUG_RELATION:
             print(ways)
@@ -118,13 +139,11 @@ for relation in relations:
         for way in  ways:
             nodesOfWay = [findNode(i, nodes) for i in way["nodes"]]
             streetLength += getLength(nodesOfWay)
+        if streetLength > 0:
+            addResult(ways[0]["tags"]["highway"], streetLength, name, relId)
     if DEBUG: print("street name", name, "length", streetLength)
-    if streetLength > maxLength:
-        maxLength = streetLength
-        maxLengthName = name
-        maxLengthId = relId
     if index %50 == 0: print(index, "over", len(relations))
-print("Longest is", maxLengthName, "(", maxLengthId, ") with", maxLength, "meters")
+print(result)
     
 
 
